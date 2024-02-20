@@ -65,7 +65,9 @@ Vue.component('board', {
                     cardPosition: 1,
                     cardEditing: false,
                     returnReason: null,
-                    cardReturning: false
+                    cardReturning: false,
+                    completeStatus: null,
+                    completeTime: null,
                 }
 
                 this.columns[0].cards.push(card);
@@ -109,6 +111,7 @@ Vue.component('board', {
             for (let i = 0; i < this.columns[1].cards.length; ++i) {
                 if (this.columns[1].cards[i].title === cardTitle) {
                     this.columns[1].cards[i].cardPosition = 3;
+                    this.columns[1].cards[i].returnReason = null;
                     let cardForMove = this.columns[1].cards[i];
                     this.columns[1].cards.splice(i,1);
                     this.columns[2].cards.push(cardForMove);
@@ -158,7 +161,7 @@ Vue.component('board-column', {
         <h2 class="columnTitle" v-if="column.position === 1">Запланированные задачи</h2>
         <h2 class="columnTitle" v-if="column.position === 2">Задачи в работе</h2>
         <h2 class="columnTitle" v-if="column.position === 3">Тестирование</h2>
-        <h2 class="columnTitle" v-if="column.position === 4">Выполненыне задачи</h2>
+        <h2 class="columnTitle" v-if="column.position === 4">Выполненые задачи</h2>
         <board-card class="card" v-for="card in column.cards" :key="card.title" :card="card"></board-card>
     </div>
  `,
@@ -197,16 +200,23 @@ Vue.component('board-card', {
         <p>{{ card.createTime }}</p>
         
         <p v-if="this.card.changeTime !== null">Дата последнего редактирования:</p>
-        <p v-if="this.card.changeTime !== null">{{ card.changeTime }}</p>
+        <p v-if="this.card.changeTime !== null">{{ card.changeTime }}</p> 
+        
+        
+        <p v-if="this.card.completeTime !== null">Дата выполнения:</p>
+        <p v-if="this.card.completeTime !== null">{{ card.completeTime }}</p> 
         
         <p v-if="this.card.returnReason !== null">Причина возврата:</p>
         <p v-if="this.card.returnReason !== null && this.card.cardReturning === false">{{ card.returnReason }}</p>
         <p v-if="this.card.cardReturning === true"><input  type="text" name="returnReason" id="returnReason" v-model="card.returnReason" placeholder="Введите причину возврата"></p>
         
-        <button class="moveButton" @click="editCard"> 📝 </button>
+        <button class="moveButton" @click="editCard" v-if="this.card.cardPosition !== 4"> 📝 </button>
         <button v-if="this.card.cardPosition === 1" class="moveButton" @click="removeCard"> ❌ </button>
         <button v-if="this.card.cardPosition === 3" class="moveButton" @click="returnCard"> ⚠️ </button>
-        <button class="moveButton" @click="moveCard"> ➡️ </button>
+        <button class="moveButton" @click="moveCard" v-if="this.card.cardPosition !== 4"> ➡️ </button>
+        
+        <div class="inTime" v-if="card.completeStatus === true">Задача выполнена вовремя</div>
+        <div class="outTime" v-if="card.completeStatus === false">Задача просрочена</div>
         
     </div>
  `,
@@ -228,7 +238,32 @@ Vue.component('board-card', {
                 return
             }
             if (this.card.cardPosition === 3) {
+
+                let completeTime = new Date ();
+
+                let yearComplete = completeTime.getFullYear();
+                let monthComplete = completeTime.getMonth() + 1;
+                let dateComplete = completeTime.getDate();
+
+                if (monthComplete < 10) {
+                    monthComplete = '0' + monthComplete;
+                }
+
+                if (dateComplete < 10) {
+                    dateComplete = '0' + dateComplete;
+                }
+
+                this.card.completeTime = yearComplete + '-' + monthComplete + '-' + dateComplete;
+
+
+                if (this.card.deadline > this.card.completeTime) {
+                    this.card.completeStatus = true;
+                } else {
+                    this.card.completeStatus = false;
+                }
+
                 eventBus.$emit('move-card-from-third-to-four', this.card.title);
+
                 return
             }
 
