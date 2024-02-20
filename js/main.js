@@ -41,25 +41,44 @@ Vue.component('board', {
     },
     methods: {
         createCard () {
-            let timeNow = new Date();
-            let card = {
-                title: this.cardTitle,
-                desc: this.cardDesc,
-                createTime: timeNow.getFullYear() + '-' + timeNow.getMonth() + '-' +  timeNow.getDate(),
-                deadline: this.cardDeadline,
-                changeTime: null,
-                cardPosition: 1,
-                cardEditing: false
+
+            if (this.cardTitle !== null && this.cardDesc !== null && this.cardDeadline !== null ){
+                let timeNow = new Date();
+                let yearNow = timeNow.getFullYear();
+                let monthNow = timeNow.getMonth() + 1;
+                let dateNow = timeNow.getDate();
+
+                if (monthNow < 10) {
+                    monthNow = '0' + monthNow;
+                }
+
+                if (dateNow < 10) {
+                    dateNow = '0' + dateNow;
+                }
+
+                let card = {
+                    title: this.cardTitle,
+                    desc: this.cardDesc,
+                    createTime: yearNow + '-' + monthNow + '-' + dateNow,
+                    deadline: this.cardDeadline,
+                    changeTime: null,
+                    cardPosition: 1,
+                    cardEditing: false,
+                    returnReason: null,
+                    cardReturning: false
+                }
+
+                this.columns[0].cards.push(card);
+
+                this.cardTitle = null;
+                this.cardDesc = null;
+                this.cardDeadline = null;
+
+
+                eventBus.$emit('update-data');
+            } else {
+                alert('Не все данные были указаны');
             }
-
-            this.columns[0].cards.push(card);
-
-            this.cardTitle = null;
-            this.cardDesc = null;
-            this.cardDeadline = null;
-
-
-            eventBus.$emit('update-data');
         }
     },
     mounted() {
@@ -98,6 +117,29 @@ Vue.component('board', {
             eventBus.$emit('update-data');
         })
 
+        eventBus.$on('move-card-from-third-to-four', moveFromThirdToFour = (cardTitle) => {
+            for (let i = 0; i < this.columns[2].cards.length; ++i) {
+                if (this.columns[2].cards[i].title === cardTitle) {
+                    this.columns[2].cards[i].cardPosition = 4;
+                    let cardForMove = this.columns[2].cards[i];
+                    this.columns[2].cards.splice(i,1);
+                    this.columns[3].cards.push(cardForMove);
+                }
+            }
+            eventBus.$emit('update-data');
+        })
+        eventBus.$on('move-card-from-third-to-second', moveFromThirdToSecond = (cardTitle) => {
+            for (let i = 0; i < this.columns[2].cards.length; ++i) {
+                if (this.columns[2].cards[i].title === cardTitle) {
+                    this.columns[2].cards[i].cardPosition = 2;
+                    let cardForMove = this.columns[2].cards[i];
+                    this.columns[2].cards.splice(i,1);
+                    this.columns[1].cards.push(cardForMove);
+                }
+            }
+            eventBus.$emit('update-data');
+        })
+
         eventBus.$on('remove-card-from-first', removeFromFirst = (cardTitle) => {
             for (let i = 0; i < this.columns[0].cards.length; ++i) {
                 if (this.columns[0].cards[i].title === cardTitle) {
@@ -113,6 +155,10 @@ Vue.component('board', {
 Vue.component('board-column', {
     template: `
     <div class="column">
+        <h2 class="columnTitle" v-if="column.position === 1">Запланированные задачи</h2>
+        <h2 class="columnTitle" v-if="column.position === 2">Задачи в работе</h2>
+        <h2 class="columnTitle" v-if="column.position === 3">Тестирование</h2>
+        <h2 class="columnTitle" v-if="column.position === 4">Выполненыне задачи</h2>
         <board-card class="card" v-for="card in column.cards" :key="card.title" :card="card"></board-card>
     </div>
  `,
@@ -147,15 +193,19 @@ Vue.component('board-card', {
         <p v-if="this.card.cardEditing === true"><input  type="date" name="deadline" id="deadline" v-model="card.deadline"></p>
         
         
-        
-        
         <p>Дата добавления:</p>
         <p>{{ card.createTime }}</p>
+        
         <p v-if="this.card.changeTime !== null">Дата последнего редактирования:</p>
         <p v-if="this.card.changeTime !== null">{{ card.changeTime }}</p>
         
+        <p v-if="this.card.returnReason !== null">Причина возврата:</p>
+        <p v-if="this.card.returnReason !== null && this.card.cardReturning === false">{{ card.returnReason }}</p>
+        <p v-if="this.card.cardReturning === true"><input  type="text" name="returnReason" id="returnReason" v-model="card.returnReason" placeholder="Введите причину возврата"></p>
+        
         <button class="moveButton" @click="editCard"> 📝 </button>
         <button v-if="this.card.cardPosition === 1" class="moveButton" @click="removeCard"> ❌ </button>
+        <button v-if="this.card.cardPosition === 3" class="moveButton" @click="returnCard"> ⚠️ </button>
         <button class="moveButton" @click="moveCard"> ➡️ </button>
         
     </div>
@@ -171,9 +221,15 @@ Vue.component('board-card', {
         moveCard () {
             if (this.card.cardPosition === 1) {
                 eventBus.$emit('move-card-from-first-to-second', this.card.title);
+                return
             }
             if (this.card.cardPosition === 2) {
                 eventBus.$emit('move-card-from-second-to-third', this.card.title);
+                return
+            }
+            if (this.card.cardPosition === 3) {
+                eventBus.$emit('move-card-from-third-to-four', this.card.title);
+                return
             }
 
         },
@@ -185,11 +241,33 @@ Vue.component('board-card', {
                 if (this.card.cardEditing === false) {
                     this.card.cardEditing = true;
                 } else {
-                    this.card.cardEditing = false;
                     let timeChange = new Date()
-                    this.card.changeTime = timeChange;
+
+                    let yearChange = timeChange.getFullYear();
+                    let monthChange = timeChange.getMonth() + 1;
+                    let dateChange = timeChange.getDate();
+
+                    if (monthChange < 10) {
+                        monthChange = '0' + monthChange;
+                    }
+
+                    if (dateChange < 10) {
+                        dateChange = '0' + dateChange;
+                    }
+
+                    this.card.changeTime = yearChange + '-' + monthChange + '-' + dateChange;
+                    this.card.cardEditing = false;
                     eventBus.$emit('update-data');
                 }
+            }
+        },
+        returnCard () {
+            if (this.card.cardReturning === false) {
+                this.card.cardReturning = true;
+            } else {
+                eventBus.$emit('move-card-from-third-to-second', this.card.title);
+                this.card.cardReturning = false;
+                eventBus.$emit('update-data');
             }
         }
     },
