@@ -12,8 +12,6 @@ Vue.component('board', {
             <board-column v-for="column in columns" :key="column.positon" :column="column"></board-column>
         </div>
         
-        {{ columns }}
-        
     </div>
  `,
     data() {
@@ -83,6 +81,18 @@ Vue.component('board', {
                     let cardForMove = this.columns[0].cards[i];
                     this.columns[0].cards.splice(i,1);
                     this.columns[1].cards.push(cardForMove);
+                }
+            }
+            eventBus.$emit('update-data');
+        })
+
+        eventBus.$on('move-card-from-second-to-third', moveFromSecondToThird = (cardTitle) => {
+            for (let i = 0; i < this.columns[1].cards.length; ++i) {
+                if (this.columns[1].cards[i].title === cardTitle) {
+                    this.columns[1].cards[i].cardPosition = 3;
+                    let cardForMove = this.columns[1].cards[i];
+                    this.columns[1].cards.splice(i,1);
+                    this.columns[2].cards.push(cardForMove);
                 }
             }
             eventBus.$emit('update-data');
@@ -162,18 +172,22 @@ Vue.component('board-card', {
             if (this.card.cardPosition === 1) {
                 eventBus.$emit('move-card-from-first-to-second', this.card.title);
             }
+            if (this.card.cardPosition === 2) {
+                eventBus.$emit('move-card-from-second-to-third', this.card.title);
+            }
 
         },
         removeCard () {
             eventBus.$emit('remove-card-from-first', this.card.title);
         },
         editCard () {
-            if (this.card.cardPosition === 1) {
+            if (this.card.cardPosition === 1 || this.card.cardPosition === 2 || this.card.cardPosition === 3) {
                 if (this.card.cardEditing === false) {
                     this.card.cardEditing = true;
                 } else {
                     this.card.cardEditing = false;
-                    this.card.changeTime = new Date();
+                    let timeChange = new Date()
+                    this.card.changeTime = timeChange;
                     eventBus.$emit('update-data');
                 }
             }
