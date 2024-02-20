@@ -50,7 +50,8 @@ Vue.component('board', {
                 createTime: timeNow.getFullYear() + '-' + timeNow.getMonth() + '-' +  timeNow.getDate(),
                 deadline: this.cardDeadline,
                 changeTime: null,
-                cardPosition: 1
+                cardPosition: 1,
+                cardEditing: false
             }
 
             this.columns[0].cards.push(card);
@@ -60,8 +61,7 @@ Vue.component('board', {
             this.cardDeadline = null;
 
 
-            let columns = {columns: this.columns}
-            localStorage.data3 = JSON.stringify(columns);
+            eventBus.$emit('update-data');
         }
     },
     mounted() {
@@ -70,6 +70,32 @@ Vue.component('board', {
             this.columns = data.columns;
         }
 
+        eventBus.$on('update-data', updateData = () => {
+            console.log('LocalStorage обновлен')
+            let columns = {columns: this.columns}
+            localStorage.data3 = JSON.stringify(columns);
+        })
+
+        eventBus.$on('move-card-from-first-to-second', moveFromFirstToSecond = (cardTitle) => {
+            for (let i = 0; i < this.columns[0].cards.length; ++i) {
+                if (this.columns[0].cards[i].title === cardTitle) {
+                    this.columns[0].cards[i].cardPosition = 2;
+                    let cardForMove = this.columns[0].cards[i];
+                    this.columns[0].cards.splice(i,1);
+                    this.columns[1].cards.push(cardForMove);
+                }
+            }
+            eventBus.$emit('update-data');
+        })
+
+        eventBus.$on('remove-card-from-first', removeFromFirst = (cardTitle) => {
+            for (let i = 0; i < this.columns[0].cards.length; ++i) {
+                if (this.columns[0].cards[i].title === cardTitle) {
+                    this.columns[0].cards.splice(i,1);
+                }
+            }
+            eventBus.$emit('update-data');
+        })
 
     }
 })
@@ -92,15 +118,6 @@ Vue.component('board-column', {
 
     },
     mounted() {
-        eventBus.$on('move-card-from-first-to-second', moveFromFirstToSecond = (cardTitle) => {
-            for (let i = 0; i < this.columns[0].cards.length; ++i) {
-                if (this.columns[0].cards[i].title === cardTitle) {
-                    let cardForMove = this.columns[0].cards[i];
-                    this.columns[0].cards.splice(i,1);
-                    this.columns[1].cards.push(cardForMove);
-                }
-            }
-        })
 
     }
 
@@ -109,16 +126,28 @@ Vue.component('board-column', {
 Vue.component('board-card', {
     template: `
     <div>
-        <p>{{ card.title }}</p>
-        <p>{{ card.desc }}</p>
+        <p v-if="this.card.cardEditing === false">{{ card.title }}</p>
+        <p v-if="this.card.cardEditing === true"><input  type="text" name="title" id="title" v-model="card.title"></p>
+        
+        <p v-if="this.card.cardEditing === false">{{ card.desc }}</p>
+        <p v-if="this.card.cardEditing === true"><input type="text" name="desc" id="desc" v-model="card.desc"></p>
+        
+        <p>Дедлайн:</p>
+        <p v-if="this.card.cardEditing === false">{{ card.deadline }}</p>
+        <p v-if="this.card.cardEditing === true"><input  type="date" name="deadline" id="deadline" v-model="card.deadline"></p>
+        
+        
+        
+        
         <p>Дата добавления:</p>
         <p>{{ card.createTime }}</p>
-        <p>Дедлайн:</p>
-        <p>{{ card.deadline }}</p>
+        <p v-if="this.card.changeTime !== null">Дата последнего редактирования:</p>
+        <p v-if="this.card.changeTime !== null">{{ card.changeTime }}</p>
         
-        <button class="moveButton" @click="moveCard"> ></button>
+        <button class="moveButton" @click="editCard"> 📝 </button>
+        <button v-if="this.card.cardPosition === 1" class="moveButton" @click="removeCard"> ❌ </button>
+        <button class="moveButton" @click="moveCard"> ➡️ </button>
         
-        {{ this.card }}
     </div>
  `,
     props: {
@@ -126,7 +155,6 @@ Vue.component('board-card', {
     },
     data() {
         return {
-
         }
     },
     methods: {
@@ -135,6 +163,20 @@ Vue.component('board-card', {
                 eventBus.$emit('move-card-from-first-to-second', this.card.title);
             }
 
+        },
+        removeCard () {
+            eventBus.$emit('remove-card-from-first', this.card.title);
+        },
+        editCard () {
+            if (this.card.cardPosition === 1) {
+                if (this.card.cardEditing === false) {
+                    this.card.cardEditing = true;
+                } else {
+                    this.card.cardEditing = false;
+                    this.card.changeTime = new Date();
+                    eventBus.$emit('update-data');
+                }
+            }
         }
     },
     mounted() {
