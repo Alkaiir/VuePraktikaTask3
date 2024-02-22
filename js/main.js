@@ -11,8 +11,13 @@ Vue.component('board', {
         <div class="columns">
             <board-column v-for="column in columns" :key="column.positon" :column="column"></board-column>
         </div>
+        <h2 class="columnTitle">Избранное</h2>
+        <div class="favorite">
+            
+            <board-card class="card" v-for="card in favorite" :key="card.id" :card="card"></board-card>
+        </div>
         
-    </div>
+        </div>
  `,
     data() {
         return {
@@ -34,9 +39,11 @@ Vue.component('board', {
                     cards: []
                 }
             ],
+            favorite: [],
             cardTitle: null,
             cardDesc: null,
-            cardDeadline: null
+            cardDeadline: null,
+            idList: null,
         }
     },
     methods: {
@@ -57,6 +64,7 @@ Vue.component('board', {
                 }
 
                 let card = {
+                    id: this.idList,
                     title: this.cardTitle,
                     desc: this.cardDesc,
                     createTime: yearNow + '-' + monthNow + '-' + dateNow,
@@ -68,6 +76,7 @@ Vue.component('board', {
                     cardReturning: false,
                     completeStatus: null,
                     completeTime: null,
+                    inFavorite: false,
                 }
 
                 this.columns[0].cards.push(card);
@@ -75,7 +84,7 @@ Vue.component('board', {
                 this.cardTitle = null;
                 this.cardDesc = null;
                 this.cardDeadline = null;
-
+                this.idList += 1;
 
                 eventBus.$emit('update-data');
             } else {
@@ -87,12 +96,19 @@ Vue.component('board', {
         if (localStorage.data3 !== undefined) {
             let data = JSON.parse(localStorage.data3);
             this.columns = data.columns;
+            this.idList = data.idList;
+            this.favorite = data.favorite;
         }
+
+        if (this.idList === null) {
+            this.idList = 1;
+        }
+
 
         eventBus.$on('update-data', updateData = () => {
             console.log('LocalStorage обновлен')
-            let columns = {columns: this.columns}
-            localStorage.data3 = JSON.stringify(columns);
+            let data = {columns: this.columns, favorite: this.favorite, idList: this.idList}
+            localStorage.data3 = JSON.stringify(data);
         })
 
         eventBus.$on('move-card-from-first-to-second', moveFromFirstToSecond = (cardTitle) => {
@@ -152,6 +168,74 @@ Vue.component('board', {
             eventBus.$emit('update-data');
         })
 
+        eventBus.$on('add-to-favorite', addToFavorite = (id) => {
+            let card;
+            let type;
+
+            for (let i = 0; i < this.columns[0].cards.length; ++i) {
+                if (this.columns[0].cards[i].id === id) {
+                    if (this.columns[0].cards[i].inFavorite === false) {
+                        this.columns[0].cards[i].inFavorite = true;
+                        type = 'add';
+                    } else {
+                        this.columns[0].cards[i].inFavorite = false;
+                        type = 'remove';
+                    }
+                    card = this.columns[0].cards[i];
+                }
+            }
+            for (let i = 0; i < this.columns[1].cards.length; ++i) {
+                if (this.columns[1].cards[i].id === id) {
+                    if (this.columns[1].cards[i].inFavorite === false) {
+                        this.columns[1].cards[i].inFavorite = true;
+                        type = 'add';
+                    } else {
+                        this.columns[1].cards[i].inFavorite = false;
+                        type = 'remove';
+                    }
+                    card = this.columns[1].cards[i];
+                }
+            }
+            for (let i = 0; i < this.columns[2].cards.length; ++i) {
+                if (this.columns[2].cards[i].id === id) {
+                    if (this.columns[2].cards[i].inFavorite === false) {
+                        this.columns[2].cards[i].inFavorite = true;
+                        type = 'add';
+                    } else {
+                        this.columns[2].cards[i].inFavorite = false;
+                        type = 'remove';
+                    }
+                    card = this.columns[2].cards[i];
+                }
+            }
+            for (let i = 0; i < this.columns[3].cards.length; ++i) {
+                if (this.columns[3].cards[i].id === id) {
+                    if (this.columns[3].cards[i].inFavorite === false) {
+                        this.columns[3].cards[i].inFavorite = true;
+                        type = 'add';
+                    } else {
+                        this.columns[3].cards[i].inFavorite = false;
+                        type = 'remove';
+                    }
+                    card = this.columns[3].cards[i];
+                }
+            }
+
+            if (type === 'add') {
+                this.favorite.push(card);
+            } else if (type === 'remove') {
+                for (let i = 0; i < this.favorite.length; ++i) {
+                    if (this.favorite[i].id === card.id) {
+                        this.favorite.splice(i,1);
+                    }
+                }
+            }
+
+
+
+            eventBus.$emit('update-data');
+        })
+
     }
 })
 
@@ -176,15 +260,13 @@ Vue.component('board-column', {
     methods: {
 
     },
-    mounted() {
-
-    }
 
 })
 
 Vue.component('board-card', {
     template: `
     <div>
+        <button class="moveButton" @click="addToFavorite"> ⭐️ </button>
         <p v-if="this.card.cardEditing === false">{{ card.title }}</p>
         <p v-if="this.card.cardEditing === true"><input  type="text" name="title" id="title" v-model="card.title"></p>
         
@@ -304,7 +386,10 @@ Vue.component('board-card', {
                 this.card.cardReturning = false;
                 eventBus.$emit('update-data');
             }
-        }
+        },
+        addToFavorite () {
+            eventBus.$emit('add-to-favorite', this.card.id);
+        },
     },
     mounted() {
     }
